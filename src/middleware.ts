@@ -65,9 +65,11 @@ export async function middleware(request: NextRequest) {
         .from("profiles")
         .select("role")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (profile?.role !== "admin") {
+      const userRole = profile?.role || user.user_metadata?.role;
+
+      if (userRole !== "admin") {
         return NextResponse.redirect(new URL("/student/dashboard", request.url));
       }
     }
