@@ -180,11 +180,23 @@ export async function POST(
       });
     }
 
+    // Sanitize questions: Never reveal correct_answer during an active test session
+    const studentSafeQuestions = questions.map((q: any) => ({
+      id: q.id,
+      exam_id: q.exam_id,
+      question_order: q.question_order,
+      question_text: q.question_text,
+      options_json: q.options_json,
+      type: q.type,
+      marks: q.marks,
+      negative_marks: q.negative_marks,
+    }));
+
     return NextResponse.json({
       id: exam.id,
       title: exam.title,
       duration: exam.duration,
-      questions,
+      questions: studentSafeQuestions,
       userExamId: userExam.id,
       remainingTime: userExam.remaining_time || exam.duration * 60,
       candidateName,

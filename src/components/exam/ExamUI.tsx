@@ -320,7 +320,7 @@ export default function ExamUI({
   return (
     <div
       ref={containerRef}
-      className="flex flex-col h-screen w-screen overflow-hidden select-none bg-slate-100 text-slate-900 font-sans"
+      className="fixed inset-0 z-50 flex flex-col h-screen w-screen overflow-hidden select-none bg-slate-100 text-slate-900 font-sans"
     >
       {/* 1. TOP HEADER (TCS iON / Infosys layout) */}
       <header className="h-16 bg-[#273746] text-white flex items-center justify-between px-6 shadow-md border-b border-slate-700 shrink-0">

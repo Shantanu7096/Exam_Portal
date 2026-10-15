@@ -137,7 +137,7 @@ export default async function StudentDashboard() {
                   </div>
 
                   <Link
-                    href={`/student/exam/${exam.id}`}
+                    href={`/exam/${exam.id}`}
                     className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider shadow transition"
                   >
                     <span>Start Test</span>
