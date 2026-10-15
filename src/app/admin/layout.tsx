@@ -8,6 +8,7 @@ import {
   Sparkles,
   LogOut,
   Shield,
+  ShieldCheck,
   Layers,
 } from "lucide-react";
 
@@ -69,6 +70,14 @@ export default function AdminLayout({
           >
             <Users className="w-4 h-4 text-slate-400" />
             <span>Student Management</span>
+          </Link>
+
+          <Link
+            href="/admin/faculty"
+            className="flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition"
+          >
+            <ShieldCheck className="w-4 h-4 text-indigo-400" />
+            <span>Faculty & Admins</span>
           </Link>
 
           <div className="pt-4 mt-4 border-t border-slate-800">

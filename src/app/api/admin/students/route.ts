@@ -7,6 +7,7 @@ export async function GET() {
     const { data: students, error } = await supabase
       .from("profiles")
       .select("*")
+      .eq("role", "student")
       .order("created_at", { ascending: false });
 
     if (error) {

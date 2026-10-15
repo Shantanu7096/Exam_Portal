@@ -1,26 +1,19 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Users, Plus, Shield, Check, RefreshCw, AlertCircle, ShieldCheck, Lock } from "lucide-react";
+import Link from "next/link";
+import { Users, Plus, Shield, Check, RefreshCw, AlertCircle, ShieldCheck, ArrowRight } from "lucide-react";
 
 export default function StudentManagementPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
-  const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
 
   const [newStudent, setNewStudent] = useState({
     fullName: "",
     email: "",
     allowedAttempts: 3,
   });
-
-  const [newAdmin, setNewAdmin] = useState({
-    fullName: "",
-    email: "",
-    password: "",
-  });
-  const [adminLoading, setAdminLoading] = useState(false);
 
   const fetchStudents = async () => {
     try {
@@ -81,51 +74,26 @@ export default function StudentManagementPage() {
     }
   };
 
-  const handleCreateAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setAdminLoading(true);
-      const res = await fetch("/api/admin/staff", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newAdmin),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert(data.message || "Administrator account created successfully!");
-        setShowAdminModal(false);
-        setNewAdmin({ fullName: "", email: "", password: "" });
-        fetchStudents();
-      } else {
-        alert(data.error || "Failed to create administrator account");
-      }
-    } catch (e: any) {
-      alert("Error: " + e.message);
-    } finally {
-      setAdminLoading(false);
-    }
-  };
-
   return (
     <div className="space-y-6 font-sans">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            User & Candidate Management
+            Student Candidate Management
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Configure student candidates, adjust attempt quotas, or provision new Administrator/Faculty accounts.
+            Review registered student candidates, manage exam attempts, and view candidate details.
           </p>
         </div>
 
         <div className="flex items-center space-x-3">
-          <button
-            onClick={() => setShowAdminModal(true)}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider shadow transition flex items-center space-x-1.5"
+          <Link
+            href="/admin/faculty"
+            className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold uppercase tracking-wider transition flex items-center space-x-1.5"
           >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Add Admin / Faculty</span>
-          </button>
+            <ShieldCheck className="w-4 h-4 text-indigo-600" />
+            <span>Faculty & Admins Portal</span>
+          </Link>
 
           <button
             onClick={() => setShowAddModal(true)}
@@ -307,91 +275,6 @@ export default function StudentManagementPage() {
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider"
                 >
                   Save Candidate
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add Admin / Faculty Modal */}
-      {showAdminModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl border border-purple-200">
-            <div className="flex items-center space-x-2 text-purple-700 mb-1">
-              <ShieldCheck className="w-5 h-5" />
-              <h3 className="text-lg font-bold text-slate-900">
-                Provision Admin / Faculty Account
-              </h3>
-            </div>
-            <p className="text-xs text-slate-500 mb-4">
-              Created accounts will immediately have full privileges to configure exams, view results, and export Excel reports at <code>/admin/login</code>.
-            </p>
-
-            <form onSubmit={handleCreateAdmin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
-                  Faculty / Admin Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Dr. Ramesh Kumar"
-                  value={newAdmin.fullName}
-                  onChange={(e) =>
-                    setNewAdmin({ ...newAdmin, fullName: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
-                  Official Email Address
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="faculty@institution.edu"
-                  value={newAdmin.email}
-                  onChange={(e) =>
-                    setNewAdmin({ ...newAdmin, email: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
-                  Login Password (Min 6 Characters)
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  placeholder="••••••••"
-                  value={newAdmin.password}
-                  onChange={(e) =>
-                    setNewAdmin({ ...newAdmin, password: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAdminModal(false)}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={adminLoading}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold uppercase tracking-wider shadow transition"
-                >
-                  {adminLoading ? "Creating..." : "Create Admin Account"}
                 </button>
               </div>
             </form>
