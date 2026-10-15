@@ -78,34 +78,30 @@ export default function AdminLoginPage() {
     }
 
     try {
-      // 1. Sign in with password
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: cleanPassword,
+      // 1. Authenticate via Server API to set standard HTTP cookies
+      const serverRes = await fetch("/api/auth/admin-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: cleanEmail,
+          password: cleanPassword,
+        }),
       });
 
-      if (error) {
-        throw error;
+      const serverData = await serverRes.json();
+      if (!serverRes.ok) {
+        throw new Error(serverData.error || "Failed to authenticate administrator.");
       }
 
-      if (!data.user) {
-        throw new Error("Unable to authenticate user session.");
-      }
-
-      // 2. Verify that this user actually has admin privileges
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .maybeSingle();
-
-      const userRole = profile?.role || data.user.user_metadata?.role;
-
-      if (userRole !== "admin" && cleanEmail !== "admin@exam.com") {
-        await supabase.auth.signOut();
-        throw new Error(
-          "Access Denied: This account is registered as a student. Only administrators and faculty can log in here."
-        );
+      // 2. Synchronize client-side supabase session
+      try {
+        await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: cleanPassword,
+        });
+      } catch (clientErr) {
+        // Server cookie already set
+        console.warn("Client sync warning:", clientErr);
       }
 
       setSuccessMessage("Credentials verified! Launching Admin Console...");
@@ -113,7 +109,7 @@ export default function AdminLoginPage() {
       // Hard redirect to ensure all auth cookies are delivered directly to Next.js middleware
       setTimeout(() => {
         window.location.href = "/admin";
-      }, 300);
+      }, 200);
     } catch (err: any) {
       console.error("Admin login error:", err);
       let msg = err.message || "Failed to authenticate administrator.";
