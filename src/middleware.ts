@@ -48,19 +48,27 @@ export async function middleware(request: NextRequest) {
 
     const path = request.nextUrl.pathname;
 
-    // Protected paths
-    const isProtected =
-      path.startsWith("/admin") ||
-      path.startsWith("/student") ||
-      path.startsWith("/exam");
-
-    if (!user && isProtected) {
-      const redirectUrl = new URL("/login", request.url);
-      redirectUrl.searchParams.set("redirect", path);
-      return NextResponse.redirect(redirectUrl);
+    // Allow public access to /admin/login and /login
+    if (path === "/admin/login" || path === "/login") {
+      return response;
     }
 
-    if (user && path.startsWith("/admin")) {
+    // Protected paths
+    if (!user) {
+      if (path.startsWith("/admin")) {
+        const redirectUrl = new URL("/admin/login", request.url);
+        redirectUrl.searchParams.set("redirect", path);
+        return NextResponse.redirect(redirectUrl);
+      }
+
+      if (path.startsWith("/student") || path.startsWith("/exam")) {
+        const redirectUrl = new URL("/login", request.url);
+        redirectUrl.searchParams.set("redirect", path);
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
+
+    if (user && path.startsWith("/admin") && path !== "/admin/login") {
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")

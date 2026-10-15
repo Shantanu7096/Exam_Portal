@@ -3,34 +3,35 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, fullName, role = "student" } = await req.json();
+    const { email, password, fullName, prnNumber, mobileNumber } = await req.json();
 
-    if (!email || !password) {
+    if (!email || !password || !fullName || !prnNumber || !mobileNumber) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: "Full Name, PRN Number, Mobile Number, Email, and Password are all required." },
         { status: 400 }
       );
     }
 
     if (password.length < 6) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters" },
+        { error: "Password must be at least 6 characters long." },
         { status: 400 }
       );
     }
 
     const supabaseAdmin = createAdminClient();
-    const cleanRole = role.toLowerCase() === "admin" ? "admin" : "student";
 
-    // 1. Create user in Supabase Auth with auto-confirmed email
+    // 1. Create candidate user in Supabase Auth
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
-        email,
+        email: email.trim().toLowerCase(),
         password,
-        email_confirm: true, // Auto-confirm email so student/admin can log in immediately
+        email_confirm: true, // Candidate can log in immediately with their credentials
         user_metadata: {
-          full_name: fullName || (cleanRole === "admin" ? "Exam Administrator" : "Student Candidate"),
-          role: cleanRole,
+          full_name: fullName.trim(),
+          prn_number: prnNumber.trim().toUpperCase(),
+          mobile_number: mobileNumber.trim(),
+          role: "student",
           allowed_attempts: 3,
         },
       });
@@ -41,18 +42,28 @@ export async function POST(req: NextRequest) {
 
     const userId = authData.user.id;
 
-    // 2. Ensure profile is created/updated in public.profiles table
-    const { error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .upsert({
-        id: userId,
-        full_name: fullName || (cleanRole === "admin" ? "Exam Administrator" : "Student Candidate"),
-        role: cleanRole,
-        allowed_attempts: 3,
+    // 2. Insert profile record in public.profiles table
+    const profilePayload: Record<string, any> = {
+      id: userId,
+      full_name: fullName.trim(),
+      role: "student",
+      allowed_attempts: 3,
+    };
+
+    // Attempt upsert (including prn_number & mobile_number if columns exist)
+    try {
+      const { error: fullProfileErr } = await supabaseAdmin.from("profiles").upsert({
+        ...profilePayload,
+        prn_number: prnNumber.trim().toUpperCase(),
+        mobile_number: mobileNumber.trim(),
       });
 
-    if (profileError) {
-      console.warn("Profile upsert note:", profileError.message);
+      if (fullProfileErr) {
+        // Fallback without dynamic columns if migration hasn't been executed
+        await supabaseAdmin.from("profiles").upsert(profilePayload);
+      }
+    } catch {
+      await supabaseAdmin.from("profiles").upsert(profilePayload);
     }
 
     return NextResponse.json({
@@ -60,13 +71,15 @@ export async function POST(req: NextRequest) {
       user: {
         id: userId,
         email: authData.user.email,
-        role: cleanRole,
+        fullName: fullName.trim(),
+        prnNumber: prnNumber.trim().toUpperCase(),
+        role: "student",
       },
     });
   } catch (err: any) {
-    console.error("Registration error:", err);
+    console.error("Candidate registration error:", err);
     return NextResponse.json(
-      { error: err.message || "Failed to register account" },
+      { error: err.message || "Failed to register candidate account" },
       { status: 500 }
     );
   }

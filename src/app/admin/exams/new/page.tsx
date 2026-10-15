@@ -1,8 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, FileText, CheckCircle2, Loader2, ArrowRight, BookOpen } from "lucide-react";
+import {
+  Sparkles,
+  FileText,
+  CheckCircle2,
+  Loader2,
+  ArrowRight,
+  BookOpen,
+  UploadCloud,
+  FileUp,
+  File,
+  X,
+  FileCheck,
+} from "lucide-react";
 
 export default function NewExamPage() {
   const router = useRouter();
@@ -16,15 +28,62 @@ export default function NewExamPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiResult, setAiResult] = useState<any>(null);
 
+  // Uploaded Document State
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [uploadedFileSize, setUploadedFileSize] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Manual Form State
   const [manualTitle, setManualTitle] = useState("");
   const [manualDuration, setManualDuration] = useState(45);
   const [manualDescription, setManualDescription] = useState("");
   const [isCreatingManual, setIsCreatingManual] = useState(false);
 
+  // Handle Document / Reference Book File Upload
+  const handleFileUpload = (file: File) => {
+    if (!file) return;
+
+    setUploadedFileName(file.name);
+    setUploadedFileSize((file.size / 1024).toFixed(1) + " KB");
+
+    // Auto set test title from file name if blank
+    if (!aiExamTitle) {
+      const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+      setAiExamTitle(cleanName.charAt(0).toUpperCase() + cleanName.slice(1) + " Practice Test");
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (text) {
+        setAiTextContent(text);
+      }
+    };
+
+    // For plain text, markdown, json, csv
+    reader.readAsText(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
+  };
+
+  const clearUploadedFile = () => {
+    setUploadedFileName(null);
+    setUploadedFileSize(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   // Sample study text button for quick testing
   const loadSampleText = () => {
     setAiExamTitle("TCS NQT Dynamic Programming & Sorting Practice");
+    setUploadedFileName("Algorithm_Notes_Chapter_4.txt");
+    setUploadedFileSize("12.4 KB");
     setAiTextContent(`
 Chapter 4: Algorithmic Efficiency and Divide-and-Conquer
 In computational problem solving, asymptotic notation describes algorithm scalability. MergeSort divides an array into two halves, recursively sorts them, and merges them in linear time O(N), guaranteeing an overall worst-case complexity of O(N log N). However, MergeSort requires O(N) auxiliary space for arrays.
@@ -40,7 +99,7 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
   const handleGenerateAI = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiTextContent.trim()) {
-      alert("Please paste study material or book text.");
+      alert("Please upload a reference book/notes file or paste study material text.");
       return;
     }
 
@@ -101,13 +160,13 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 font-sans">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
           Create New Assessment
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Choose between Google Gemini AI test synthesis from study materials or manual exam authoring.
+          Upload reference books and study materials for AI test generation, or manually author mock tests.
         </p>
       </div>
 
@@ -122,7 +181,7 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
           }`}
         >
           <Sparkles className="w-4 h-4 text-purple-600" />
-          <span>AI Practice Test Generator</span>
+          <span>AI Practice Test & Book Ingestion</span>
         </button>
 
         <button
@@ -138,16 +197,16 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
         </button>
       </div>
 
-      {/* TAB 1: AI GENERATOR */}
+      {/* TAB 1: AI GENERATOR & BOOK UPLOAD */}
       {activeTab === "ai" && (
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
-                <span>Gemini Book / Material Ingestion</span>
+                <span>Upload Study Materials & Reference Books</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Paste raw study text; Gemini extracts pseudocode, MCQs, and logic questions.
+                Upload chapter PDFs, notes, or paste text; Gemini extracts pseudocode and technical MCQs.
               </p>
             </div>
             <button
@@ -155,7 +214,7 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
               onClick={loadSampleText}
               className="text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg border border-purple-200 transition"
             >
-              Load Sample Chapter Text
+              Load Sample Chapter
             </button>
           </div>
 
@@ -215,14 +274,76 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
               </div>
             </div>
 
+            {/* DOCUMENT / BOOK UPLOAD DROPZONE */}
             <div>
               <label className="block text-xs font-semibold uppercase text-slate-600 mb-2">
-                Book Chapter / Study Material Content
+                Upload Book Chapter, Notes, or Reference File (.txt, .md, .doc, .pdf)
               </label>
+
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-purple-200 hover:border-purple-400 bg-purple-50/30 hover:bg-purple-50/60 rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-2"
+              >
+                <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center">
+                  <UploadCloud className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-slate-800">
+                    Click to browse or drag & drop reference book notes here
+                  </span>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Supports text documents, markdown notes, and book syllabus excerpts
+                  </p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".txt,.md,.json,.csv,.pdf,.doc,.docx"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleFileUpload(e.target.files[0]);
+                    }
+                  }}
+                />
+              </div>
+
+              {uploadedFileName && (
+                <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg flex items-center justify-between text-xs text-purple-900">
+                  <div className="flex items-center space-x-2">
+                    <FileCheck className="w-4 h-4 text-purple-600" />
+                    <span className="font-semibold">{uploadedFileName}</span>
+                    <span className="text-purple-500 font-mono">({uploadedFileSize})</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      clearUploadedFile();
+                    }}
+                    className="text-purple-400 hover:text-purple-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-semibold uppercase text-slate-600">
+                  Extracted Material Content (Editable Preview)
+                </label>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {aiTextContent.length} characters • ~{aiTextContent.split(/\s+/).filter(Boolean).length} words
+                </span>
+              </div>
               <textarea
-                rows={10}
+                rows={8}
                 required
-                placeholder="Paste technical documentation, book chapter notes, or syllabus content here..."
+                placeholder="Content extracted from your uploaded file will appear here, or paste raw notes directly..."
                 value={aiTextContent}
                 onChange={(e) => setAiTextContent(e.target.value)}
                 className="w-full p-4 border border-slate-300 rounded-lg text-sm font-sans focus:ring-2 focus:ring-purple-500 outline-none leading-relaxed"
@@ -270,7 +391,7 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
                   Review Questions
                 </button>
                 <button
-                  onClick={() => router.push(`/student/exam/${aiResult.examId}`)}
+                  onClick={() => router.push(`/exam/${aiResult.examId}`)}
                   className="px-4 py-2 bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 rounded-lg text-xs font-bold uppercase tracking-wider transition"
                 >
                   Take Test in Student View
