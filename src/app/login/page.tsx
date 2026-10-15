@@ -15,6 +15,9 @@ import {
   Loader2,
   ArrowRight,
   Shield,
+  Eye,
+  EyeOff,
+  Info,
 } from "lucide-react";
 
 export default function CandidateLoginPage() {
@@ -27,6 +30,7 @@ export default function CandidateLoginPage() {
   const [mobileNumber, setMobileNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -56,6 +60,9 @@ export default function CandidateLoginPage() {
     setErrorMessage(null);
     setSuccessMessage(null);
 
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
     try {
       if (isSignUp) {
         // Register Candidate Account
@@ -63,11 +70,11 @@ export default function CandidateLoginPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fullName,
-            prnNumber,
-            mobileNumber,
-            email,
-            password,
+            fullName: fullName.trim(),
+            prnNumber: prnNumber.trim().toUpperCase(),
+            mobileNumber: mobileNumber.trim(),
+            email: cleanEmail,
+            password: cleanPassword,
           }),
         });
 
@@ -80,18 +87,18 @@ export default function CandidateLoginPage() {
 
         // Auto sign in with credentials
         const { error: signInErr } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          email: cleanEmail,
+          password: cleanPassword,
         });
 
         if (signInErr) throw signInErr;
 
-        router.push("/student/dashboard");
+        window.location.href = "/student/dashboard";
       } else {
         // Sign In Candidate
         const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          email: cleanEmail,
+          password: cleanPassword,
         });
 
         if (error) {
@@ -99,7 +106,7 @@ export default function CandidateLoginPage() {
         }
 
         setSuccessMessage("Authentication successful! Redirecting...");
-        router.push("/student/dashboard");
+        window.location.href = "/student/dashboard";
       }
     } catch (err: any) {
       console.error("Auth error:", err);
@@ -186,6 +193,9 @@ export default function CandidateLoginPage() {
             </svg>
             <span>Continue with Google</span>
           </button>
+          <p className="text-[10px] text-slate-500 text-center -mt-4 mb-4">
+            Requires Google OAuth configured in Supabase. Or register below with your PRN.
+          </p>
 
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
@@ -294,13 +304,25 @@ export default function CandidateLoginPage() {
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-3 text-slate-400 hover:text-white transition"
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
               </div>
             </div>
 
