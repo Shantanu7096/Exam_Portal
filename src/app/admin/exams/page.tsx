@@ -131,12 +131,21 @@ export default function AdminExamsListPage() {
                   <tr key={exam.id} className="hover:bg-slate-50/80 transition">
                     <td className="py-4 px-6 font-semibold text-slate-900">
                       <div>
-                        {exam.title}
-                        {exam.description && (
-                          <div className="text-xs text-slate-400 font-normal line-clamp-1">
-                            {exam.description}
-                          </div>
-                        )}
+                        <div className="flex items-center space-x-2">
+                          <span>{exam.title}</span>
+                          {exam.isScheduled && exam.startTime ? (
+                            <span className="inline-flex items-center text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 px-2 py-0.5 rounded">
+                              Scheduled: {new Date(exam.startTime).toLocaleDateString()} {new Date(exam.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                              On-Demand
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500 font-normal line-clamp-1 mt-0.5">
+                          {exam.summary || (typeof exam.description === "string" && !exam.description.startsWith("{") ? exam.description : "No description provided.")}
+                        </div>
                       </div>
                     </td>
                     <td className="py-4 px-6">
@@ -176,7 +185,7 @@ export default function AdminExamsListPage() {
                         Manage Questions
                       </Link>
                       <Link
-                        href={`/student/exam/${exam.id}`}
+                        href={`/exam/${exam.id}`}
                         className="inline-block px-3 py-1.5 bg-slate-900 text-white hover:bg-slate-800 rounded text-xs font-semibold"
                       >
                         Live Test

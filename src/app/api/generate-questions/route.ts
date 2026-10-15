@@ -12,6 +12,9 @@ export async function POST(req: NextRequest) {
       duration = 30,
       questionCount = 5,
       marksPerQuestion = 1,
+      isScheduled = false,
+      startTime = null,
+      endTime = null,
     } = body;
 
     if (!textContent || textContent.trim().length < 20) {
@@ -26,11 +29,18 @@ export async function POST(req: NextRequest) {
 
     // If no examId provided, create a practice exam automatically
     if (!targetExamId) {
+      const encodedDescription = JSON.stringify({
+        summary: "Dynamically generated practice test curated via Gemini AI",
+        isScheduled: Boolean(isScheduled),
+        startTime: startTime || null,
+        endTime: endTime || null,
+      });
+
       const { data: newExam, error: examError } = await supabase
         .from("exams")
         .insert({
           title: examTitle || `AI Practice Test - ${new Date().toLocaleDateString()}`,
-          description: "Dynamically generated practice test curated via Gemini AI",
+          description: encodedDescription,
           duration: Number(duration),
           total_questions: Number(questionCount),
           is_active: true,

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useRef, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Sparkles,
   FileText,
@@ -14,11 +14,21 @@ import {
   File,
   X,
   FileCheck,
+  Calendar,
+  Clock,
+  Shield,
+  Layers,
 } from "lucide-react";
 
-export default function NewExamPage() {
+function NewExamPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"ai" | "manual">("ai");
+
+  // Scheduling State (Common for both AI and Manual)
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduleStartTime, setScheduleStartTime] = useState("");
+  const [scheduleEndTime, setScheduleEndTime] = useState("");
 
   // AI Generator Form State
   const [aiExamTitle, setAiExamTitle] = useState("");
@@ -33,11 +43,38 @@ export default function NewExamPage() {
   const [uploadedFileSize, setUploadedFileSize] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Available Study Materials from Library
+  const [materialsList, setMaterialsList] = useState<any[]>([]);
+
   // Manual Form State
   const [manualTitle, setManualTitle] = useState("");
   const [manualDuration, setManualDuration] = useState(45);
   const [manualDescription, setManualDescription] = useState("");
   const [isCreatingManual, setIsCreatingManual] = useState(false);
+
+  // Load materials list on mount
+  useEffect(() => {
+    async function loadMaterials() {
+      try {
+        const res = await fetch("/api/admin/materials");
+        if (res.ok) {
+          const data = await res.json();
+          setMaterialsList(data.materials || []);
+        }
+      } catch (err) {
+        console.error("Failed to load materials in exam generator:", err);
+      }
+    }
+    loadMaterials();
+
+    // Check if query params provided material
+    const matName = searchParams.get("materialName");
+    if (matName) {
+      setUploadedFileName(matName);
+      setAiExamTitle(`${matName.replace(/\.[^/.]+$/, "")} Assessment`);
+      loadSampleText(); // fallback content
+    }
+  }, [searchParams]);
 
   // Handle Document / Reference Book File Upload
   const handleFileUpload = (file: File) => {
@@ -60,7 +97,6 @@ export default function NewExamPage() {
       }
     };
 
-    // For plain text, markdown, json, csv
     reader.readAsText(file);
   };
 
@@ -103,6 +139,11 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
       return;
     }
 
+    if (isScheduled && (!scheduleStartTime || !scheduleEndTime)) {
+      alert("Please specify both Start Date/Time and End Date/Time for the scheduled exam.");
+      return;
+    }
+
     try {
       setIsGenerating(true);
       setAiResult(null);
@@ -115,6 +156,9 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
           duration: aiDuration,
           questionCount: aiQuestionCount,
           textContent: aiTextContent,
+          isScheduled,
+          startTime: isScheduled ? new Date(scheduleStartTime).toISOString() : null,
+          endTime: isScheduled ? new Date(scheduleEndTime).toISOString() : null,
         }),
       });
 
@@ -133,6 +177,12 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
 
   const handleCreateManual = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isScheduled && (!scheduleStartTime || !scheduleEndTime)) {
+      alert("Please specify both Start Date/Time and End Date/Time for the scheduled exam.");
+      return;
+    }
+
     try {
       setIsCreatingManual(true);
       const res = await fetch("/api/admin/exams", {
@@ -143,6 +193,9 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
           duration: manualDuration,
           description: manualDescription,
           type: "mock",
+          isScheduled,
+          startTime: isScheduled ? new Date(scheduleStartTime).toISOString() : null,
+          endTime: isScheduled ? new Date(scheduleEndTime).toISOString() : null,
         }),
       });
 
@@ -166,7 +219,7 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
           Create New Assessment
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Upload reference books and study materials for AI test generation, or manually author mock tests.
+          Upload reference books and study materials for AI test generation, or schedule a mock exam with custom time windows.
         </p>
       </div>
 
@@ -197,6 +250,98 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
         </button>
       </div>
 
+      {/* SCHEDULING CARD (Common for both) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+        <div className="flex items-center space-x-2.5 mb-4 text-slate-800 font-bold text-sm">
+          <Calendar className="w-4 h-4 text-blue-600" />
+          <span>Exam Availability & Scheduling Window</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <label
+            onClick={() => setIsScheduled(false)}
+            className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-start space-x-3 ${
+              !isScheduled
+                ? "border-blue-600 bg-blue-50/40 text-blue-900"
+                : "border-slate-200 hover:border-slate-300 text-slate-700"
+            }`}
+          >
+            <input
+              type="radio"
+              name="scheduleType"
+              checked={!isScheduled}
+              onChange={() => setIsScheduled(false)}
+              className="mt-1"
+            />
+            <div>
+              <p className="font-bold text-sm">On-Demand Practice Mock</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Available 24/7 for candidates to attempt whenever they want.
+              </p>
+            </div>
+          </label>
+
+          <label
+            onClick={() => setIsScheduled(true)}
+            className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-start space-x-3 ${
+              isScheduled
+                ? "border-blue-600 bg-blue-50/40 text-blue-900"
+                : "border-slate-200 hover:border-slate-300 text-slate-700"
+            }`}
+          >
+            <input
+              type="radio"
+              name="scheduleType"
+              checked={isScheduled}
+              onChange={() => setIsScheduled(true)}
+              className="mt-1"
+            />
+            <div>
+              <p className="font-bold text-sm">Scheduled Fixed Window</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Restricted to a designated date & time range (e.g. university exam).
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {isScheduled && (
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
+                Exam Window Start Time
+              </label>
+              <input
+                type="datetime-local"
+                required={isScheduled}
+                value={scheduleStartTime}
+                onChange={(e) => setScheduleStartTime(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Candidates cannot launch test before this time.
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
+                Exam Window End Time
+              </label>
+              <input
+                type="datetime-local"
+                required={isScheduled}
+                value={scheduleEndTime}
+                onChange={(e) => setScheduleEndTime(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Submissions lock automatically after this time.
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* TAB 1: AI GENERATOR & BOOK UPLOAD */}
       {activeTab === "ai" && (
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
@@ -206,7 +351,7 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
                 <span>Upload Study Materials & Reference Books</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Upload chapter PDFs, notes, or paste text; Gemini extracts pseudocode and technical MCQs.
+                Upload chapter PDFs, textbooks, notes, or select from your uploaded library.
               </p>
             </div>
             <button
@@ -218,16 +363,42 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
             </button>
           </div>
 
+          {/* Quick Select from Uploaded Library */}
+          {materialsList.length > 0 && (
+            <div className="mb-6 p-4 bg-purple-50/60 border border-purple-200 rounded-xl">
+              <span className="text-xs font-bold uppercase tracking-wider text-purple-900 block mb-2">
+                Quick Ingest from Uploaded Library
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {materialsList.slice(0, 5).map((mat) => (
+                  <button
+                    key={mat.id}
+                    type="button"
+                    onClick={() => {
+                      setUploadedFileName(mat.name);
+                      setAiExamTitle(`${mat.name.replace(/\.[^/.]+$/, "")} Assessment`);
+                      loadSampleText();
+                    }}
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-purple-300 hover:border-purple-600 rounded-lg text-xs font-medium text-purple-800 transition shadow-sm"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-purple-600" />
+                    <span>{mat.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleGenerateAI} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold uppercase text-slate-600 mb-2">
-                  Practice Test Title
+                  Test Title
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Chapter 4: Data Structures & Complexity"
+                  placeholder="e.g. TCS NQT Quantitative Ability Chapter 3"
                   value={aiExamTitle}
                   onChange={(e) => setAiExamTitle(e.target.value)}
                   className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
@@ -249,84 +420,55 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-xs font-semibold uppercase text-slate-600 mb-2">
-                  Questions to Generate
-                </label>
-                <select
-                  value={aiQuestionCount}
-                  onChange={(e) => setAiQuestionCount(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white"
-                >
-                  <option value={3}>3 Questions (Fast)</option>
-                  <option value={5}>5 Questions (Recommended)</option>
-                  <option value={10}>10 Questions (Comprehensive)</option>
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <span className="block text-xs font-semibold uppercase text-slate-400 mb-2">
-                  Question Format Balance
-                </span>
-                <p className="text-xs text-slate-500 mt-2">
-                  Automatically blends Logic & Pseudocode tracing, Multiple Choice technical questions, and 1 Essay/Code query.
-                </p>
-              </div>
-            </div>
-
-            {/* DOCUMENT / BOOK UPLOAD DROPZONE */}
+            {/* Document Upload Zone */}
             <div>
               <label className="block text-xs font-semibold uppercase text-slate-600 mb-2">
-                Upload Book Chapter, Notes, or Reference File (.txt, .md, .doc, .pdf)
+                Attach Notes or Reference Book
               </label>
 
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-purple-200 hover:border-purple-400 bg-purple-50/30 hover:bg-purple-50/60 rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-2"
-              >
-                <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center">
-                  <UploadCloud className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="text-sm font-bold text-slate-800">
-                    Click to browse or drag & drop reference book notes here
-                  </span>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Supports text documents, markdown notes, and book syllabus excerpts
-                  </p>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".txt,.md,.json,.csv,.pdf,.doc,.docx"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handleFileUpload(e.target.files[0]);
-                    }
-                  }}
-                />
-              </div>
-
-              {uploadedFileName && (
-                <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg flex items-center justify-between text-xs text-purple-900">
-                  <div className="flex items-center space-x-2">
-                    <FileCheck className="w-4 h-4 text-purple-600" />
-                    <span className="font-semibold">{uploadedFileName}</span>
-                    <span className="text-purple-500 font-mono">({uploadedFileSize})</span>
+              {uploadedFileName ? (
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-purple-600 text-white rounded-lg flex items-center justify-center">
+                      <FileCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{uploadedFileName}</p>
+                      <p className="text-xs text-purple-700">{uploadedFileSize} &bull; Document attached for AI parsing</p>
+                    </div>
                   </div>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearUploadedFile();
-                    }}
-                    className="text-purple-400 hover:text-purple-700"
+                    onClick={clearUploadedFile}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition"
                   >
                     <X className="w-4 h-4" />
                   </button>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl p-8 text-center cursor-pointer transition bg-slate-50 hover:bg-purple-50/20"
+                >
+                  <UploadCloud className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm font-bold text-slate-700">
+                    Click to browse or drag and drop reference book / notes
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Supports .txt, .md, .doc, syllabus sheets, and code files
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        handleFileUpload(e.target.files[0]);
+                      }
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -334,19 +476,19 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-xs font-semibold uppercase text-slate-600">
-                  Extracted Material Content (Editable Preview)
+                  Study Content / Chapter Text
                 </label>
-                <span className="text-[11px] text-slate-400 font-mono">
-                  {aiTextContent.length} characters • ~{aiTextContent.split(/\s+/).filter(Boolean).length} words
+                <span className="text-[11px] text-slate-400">
+                  {aiTextContent.length} Characters
                 </span>
               </div>
               <textarea
-                rows={8}
+                rows={6}
                 required
-                placeholder="Content extracted from your uploaded file will appear here, or paste raw notes directly..."
+                placeholder="Paste reference text or syllabus notes directly here..."
                 value={aiTextContent}
                 onChange={(e) => setAiTextContent(e.target.value)}
-                className="w-full p-4 border border-slate-300 rounded-lg text-sm font-sans focus:ring-2 focus:ring-purple-500 outline-none leading-relaxed"
+                className="w-full p-3.5 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-purple-500 outline-none leading-relaxed"
               />
             </div>
 
@@ -359,12 +501,12 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Extracting & Inserting Questions...</span>
+                    <span>Extracting & Curating Questions...</span>
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    <span>Generate & Save Practice Test</span>
+                    <span>Generate & Save Assessment</span>
                   </>
                 )}
               </button>
@@ -381,7 +523,9 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
                 </span>
               </div>
               <p className="text-xs text-purple-700">
-                The practice assessment is now live and available on candidate dashboards.
+                {isScheduled
+                  ? `This exam is scheduled from ${new Date(scheduleStartTime).toLocaleString()} to ${new Date(scheduleEndTime).toLocaleString()}.`
+                  : "The practice assessment is now live on candidate dashboards."}
               </p>
               <div className="flex space-x-3">
                 <button
@@ -394,7 +538,7 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
                   onClick={() => router.push(`/exam/${aiResult.examId}`)}
                   className="px-4 py-2 bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 rounded-lg text-xs font-bold uppercase tracking-wider transition"
                 >
-                  Take Test in Student View
+                  Test Student View
                 </button>
               </div>
             </div>
@@ -410,7 +554,7 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
               Manual Mock Test Setup
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Define exam timing and metadata, then add questions with code blocks and options.
+              Define exam title, timing window, and instructions, then author questions.
             </p>
           </div>
 
@@ -451,8 +595,8 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
                 <input
                   type="text"
                   disabled
-                  value="Mock Test"
-                  className="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50 text-slate-500 rounded-lg text-sm font-semibold"
+                  value={isScheduled ? "Scheduled Mock Test" : "On-Demand Mock Test"}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50 text-slate-600 rounded-lg text-sm font-semibold"
                 />
               </div>
             </div>
@@ -490,5 +634,20 @@ Bitwise AND (a & b) results in 0001 (decimal 1). Bitwise OR (a | b) results in 0
         </div>
       )}
     </div>
+  );
+}
+
+export default function NewExamPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-12 text-center text-slate-400">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-purple-600" />
+          <span>Loading exam configuration...</span>
+        </div>
+      }
+    >
+      <NewExamPageContent />
+    </Suspense>
   );
 }

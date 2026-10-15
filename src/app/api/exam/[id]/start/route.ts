@@ -28,6 +28,36 @@ export async function POST(
       .eq("id", examId)
       .single();
 
+    // Check if exam is scheduled and within allowed window
+    if (exam && exam.description && exam.description.trim().startsWith("{")) {
+      try {
+        const meta = JSON.parse(exam.description);
+        if (meta.isScheduled) {
+          const now = new Date();
+          if (meta.startTime && now < new Date(meta.startTime)) {
+            const start = new Date(meta.startTime);
+            return NextResponse.json(
+              {
+                error: `This examination is scheduled to begin on ${start.toLocaleDateString()} at ${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. Please wait for the test window to open.`,
+              },
+              { status: 403 }
+            );
+          }
+          if (meta.endTime && now > new Date(meta.endTime)) {
+            const end = new Date(meta.endTime);
+            return NextResponse.json(
+              {
+                error: `The scheduled examination window closed on ${end.toLocaleDateString()} at ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`,
+              },
+              { status: 403 }
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("Schedule parsing error:", err);
+      }
+    }
+
     if (examError || !exam) {
       // Fallback fallback sample test for immediate playability if DB exam doesn't exist
       return NextResponse.json({

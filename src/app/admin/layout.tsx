@@ -6,6 +6,7 @@ import {
   FileSpreadsheet,
   BarChart3,
   Sparkles,
+  BookOpen,
   LogOut,
   Shield,
   ShieldCheck,
@@ -62,6 +63,14 @@ export default function AdminLayout({
           >
             <Sparkles className="w-4 h-4 text-purple-400" />
             <span>AI Test Generator</span>
+          </Link>
+
+          <Link
+            href="/admin/materials"
+            className="flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition"
+          >
+            <BookOpen className="w-4 h-4 text-amber-400" />
+            <span>Study Materials & Books</span>
           </Link>
 
           <Link
