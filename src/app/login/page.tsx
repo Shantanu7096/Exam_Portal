@@ -44,7 +44,7 @@ export default function CandidateLoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/student/dashboard`,
+          redirectTo: `${window.location.origin}/auth/callback?next=/student/dashboard`,
         },
       });
       if (error) throw error;

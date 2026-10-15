@@ -1,7 +1,15 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Shield, Sparkles, BookOpen, CheckCircle, ArrowRight, Layers, Users } from "lucide-react";
 
-export default function HomePage() {
+export default function HomePage({
+  searchParams,
+}: {
+  searchParams?: { code?: string };
+}) {
+  if (searchParams?.code) {
+    redirect(`/auth/callback?code=${searchParams.code}`);
+  }
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col justify-between">
       {/* Header */}
